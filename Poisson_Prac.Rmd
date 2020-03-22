@@ -1,0 +1,87 @@
+---
+title: "Poisson Class"
+author: "Mohd Azmi"
+date: "22/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Basic
+
+## x. 2.1-2.3
+
+```{r}
+dpois(10, 17.2)  # P(X = x)
+ppois(10, 17.2)  # cumulative P(X <= x)
+1 - ppois(10, 17.2)  # P(X > x) = 1 - P(X <= x)
+```
+
+## plot
+
+```{r}
+X = 0:50
+X = as.data.frame(X)
+p.X = apply(X, 2, function(x) dpois(x, 17.2))
+cbind(x = X, px = p.X)
+plot(p.X, type = "l")
+```
+
+# Library
+
+```{r}
+library(pacman)
+p_load(epiDisplay, car, readr, tidyverse, summarytools, broom)
+```
+
+# Analysis
+
+```{r}
+mydata <- read_csv("UKaccident.csv")
+mydata <- mydata %>% mutate(law2 = if_else(law >= 1, "after", "before"),
+                            law2 = as_factor(law2))
+mydata
+```
+
+```{r}
+tapply(mydata$driverskilled, mydata$law2, sum)
+
+table(mydata$law2)
+mydata %>% group_by(law2) %>% count()
+```
+
+## GLM
+
+```{r}
+glm_mod0 <- glm(driverskilled ~ law2, data = mydata, family = poisson)
+summary(glm_mod0)
+tidy(glm_mod0, conf.int = T)
+```
+
+## Model fitness
+
+```{r}
+poisgof(glm_mod0)
+```
+
+### Standardized Residual
+
+```{r}
+pred_glmmod0 <- augment(glm_mod0)
+pred_glmmod0[abs(pred_glmmod0$.std.resid) > 1.96,]
+```
+
+### ?
+
+```{r}
+
+```
+
+## Rate Ratio
+
+```{r}
+idr.display(glm_mod0)
+```
+
