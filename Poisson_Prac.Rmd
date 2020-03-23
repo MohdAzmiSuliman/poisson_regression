@@ -9,6 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Library
+
+```{r}
+library(pacman)
+p_load(epiDisplay, car, readr, tidyverse, summarytools, broom, ggplot2)
+```
+
 # Basic
 
 ## x. 2.1-2.3
@@ -22,19 +29,26 @@ ppois(10, 17.2)  # cumulative P(X <= x)
 ## plot
 
 ```{r}
-X = 0:50
-X = as.data.frame(X)
-p.X = apply(X, 2, function(x) dpois(x, 17.2))
-cbind(x = X, px = p.X)
-plot(p.X, type = "l")
+x <- 0:50
+x <- as.data.frame(x)
+p.x <- apply(x, 2, function(x) dpois(x, 17.2))
+plotA <- cbind(x = x, px = p.x)
+plot(p.x, type = "o")
 ```
-
-# Library
 
 ```{r}
-library(pacman)
-p_load(epiDisplay, car, readr, tidyverse, summarytools, broom)
+x2 <- 0:50
+x2 <- as.data.frame(x2)
+plotA <- x2 %>% mutate(px2 = dpois(x2, 17.2))
+plotA
+plot(plotA, type="h")
+ggplot(plotA, aes(x2, px2)) +
+  geom_point() + geom_line() +
+  theme_bw()
 ```
+
+
+
 
 # Analysis
 
@@ -73,15 +87,105 @@ pred_glmmod0 <- augment(glm_mod0)
 pred_glmmod0[abs(pred_glmmod0$.std.resid) > 1.96,]
 ```
 
-### ?
-
-```{r}
-
-```
 
 ## Rate Ratio
 
 ```{r}
 idr.display(glm_mod0)
+```
+
+# Numerical Variables
+
+```{r}
+myds2 <- read_csv("poisson_sim.csv")
+myds2
+```
+
+```{r}
+ggplot(myds2) +
+  geom_histogram(aes(num_awards))
+
+ggplot(myds2, aes(x=math)) +
+  geom_histogram() +
+  facet_wrap(~num_awards)
+
+ggplot(myds2, aes(x=math, y=num_awards)) +
+  geom_point()
+```
+
+```{r}
+myds2 %>% freq(num_awards)
+```
+
+
+
+## poisson regression model
+
+```{r}
+pois_mod0 <- glm(num_awards ~ math, data = myds2, family = poisson)
+summary(pois_mod0)
+tidy(pois_mod0, conf.int=T)
+```
+
+## GOF
+
+```{r}
+poisgof(pois_mod0)
+```
+
+## standardized residual
+
+
+```{r}
+pred_poismod0 <- augment(pois_mod0)
+
+outlier_predpoismod0 <- pred_poismod0[abs(pred_poismod0$.std.resid) > 1.96,] %>% 
+  mutate(pred = exp(.fitted)) %>% select(num_awards, math, pred, .std.resid)
+outlier_predpoismod0
+```
+
+## Rate Ratio
+
+```{r}
+idr.display(pois_mod0)
+exp(coef(pois_mod0))
+exp(confint(pois_mod0))
+tidy(pois_mod0, conf.int = T, exponentiate = T)
+```
+
+```{r}
+pois_mod0null <- glm(num_awards ~ 1, data = myds2, family = poisson)
+anova(pois_mod0null, pois_mod0, test = "Chisq")
+```
+
+# Rate Data
+
+## Dataset
+
+```{r}
+cigar.day = c(0, 5.2, 11.2, 15.9, 20.4, 27.4, 40.8)
+person.yrs = c(1421, 927, 988, 849, 1567, 1409, 556)
+cases = c(0, 0, 2, 2, 9, 10, 7)
+cig = data.frame(cigar.day, person.yrs, cases)
+cig
+
+cig <- cig %>% mutate(rate = cases/person.yrs)
+cig
+```
+
+## model
+
+```{r}
+cig_mod0 <- glm(cases ~ cigar.day, offset = log(person.yrs), data = cig, family = poisson)
+summary(cig_mod0)
+```
+
+```{r}
+pred_cigmod0 <- augment(cig_mod0)
+pred_cigmod0
+pred_cigmod0a <- pred_cigmod0 %>%
+  mutate(pred = exp(.fitted)/person.yrs,
+         rate = cases/person.yrs) %>% select(cigar.day, cases, rate, pred)
+pred_cigmod0a
 ```
 
