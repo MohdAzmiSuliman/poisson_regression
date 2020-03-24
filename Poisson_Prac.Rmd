@@ -97,7 +97,8 @@ idr.display(glm_mod0)
 # Numerical Variables
 
 ```{r}
-myds2 <- read_csv("poisson_sim.csv")
+myds2 <- read_csv("poisson_sim.csv") %>%
+  mutate(prog1 = factor(prog, levels = 1:3, labels = c("General", "Academic", "Vocational")))
 myds2
 ```
 
@@ -187,5 +188,115 @@ pred_cigmod0a <- pred_cigmod0 %>%
   mutate(pred = exp(.fitted)/person.yrs,
          rate = cases/person.yrs) %>% select(cigar.day, cases, rate, pred)
 pred_cigmod0a
+```
+
+# Poisson Regression Model
+
+## Dataset
+
+```{r}
+myds2
+```
+
+## Univariable
+
+
+### IV math
+
+```{r}
+spois_moda <- glm(num_awards ~ math, data = myds2, family = poisson)
+summary(spois_moda)
+```
+
+### IV Prog
+
+```{r}
+spois_modb <- glm(num_awards ~ prog1, data = myds2, family = poisson)
+summary(spois_modb)
+```
+
+## Update Group
+
+```{r}
+myds2 <- myds2 %>%
+  mutate(prog2 = fct_relevel(prog1, "Academic"),
+         prog2 = fct_collapse(prog2, 'General & Vocational' = c('General', 'Vocational')))
+
+myds2
+```
+
+### IV Prog2
+
+```{r}
+levels(myds2$prog2)
+spois_modc <- glm(num_awards ~ prog2, data = myds2, family = poisson)
+summary(spois_modc)
+```
+
+```{r}
+with(myds2, ctable(num_awards, prog2, prop = "n"))
+```
+
+## Multivariable
+
+```{r}
+mpois_mod0 <- glm(num_awards ~ math + prog2, data = myds2, family = poisson)
+summary(mpois_mod0)
+```
+
+### Goodness of fitness
+
+```{r}
+poisgof(mpois_mod0)
+```
+
+### Rate Ratio or IDR
+
+```{r}
+idr.display(mpois_mod0)
+tidy(mpois_mod0, exponentiate = T, conf.int = T)
+```
+
+### outlier - standardized residual
+
+```{r}
+pred_mpoismod0 <- augment(mpois_mod0, type.predict = "class")
+pred_mpoismod0[abs(pred_mpoismod0$.std.resid) > 1.96,]
+pred_mpoismod0_out <- pred_mpoismod0[abs(pred_mpoismod0$.std.resid) > 1.96,] %>%
+  select(math, prog2, num_awards, .fitted, .std.resid)
+pred_mpoismod0_out
+```
+
+### scaled pearson chi-square
+
+```{r}
+quasi_mpoismod0 <- summary(glm(num_awards ~ math + prog2, data = myds2, family = quasipoisson))
+quasi_mpoismod0$dispersion
+```
+
+### Interaction
+
+```{r}
+mpois_mod0_i <- glm(num_awards ~ math + prog2 + math:prog2, data = myds2, family = poisson)
+summary(mpois_mod0_i)
+```
+
+```{r}
+AIC(mpois_mod0, mpois_mod0_i)
+anova(mpois_mod0, mpois_mod0_i, test = "Chisq")
+```
+
+## Final Model
+
+```{r}
+tidy(mpois_mod0, exponentiate = T, conf.int = T)
+```
+
+math score increse by 10
+
+```{r}
+exp(cbind("Math RR" = coef(mpois_mod0)[[2]]*10,
+          "95% LL" = confint(mpois_mod0)[[2]]*10,
+          "95% UL" = confint(mpois_mod0)[[5]]*10))
 ```
 
